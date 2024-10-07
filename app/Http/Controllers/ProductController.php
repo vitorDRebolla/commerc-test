@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
+use Illuminate\Http\Request;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
-use App\Models\Product;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -13,7 +15,8 @@ class ProductController extends Controller
      */
     public function index()
     {
-        return Product::all();
+        $products = Product::all();
+        return view('products.index', compact('products'));
     }
 
     /**
@@ -21,7 +24,7 @@ class ProductController extends Controller
      */
     public function create()
     {
-        return view ('product.create');
+        return view('products.create');
     }
 
     /**
@@ -29,31 +32,17 @@ class ProductController extends Controller
      */
     public function store(StoreProductRequest $request)
     {
-        $request->validate([
-            'name' => 'required',
-            'price' => 'required|numeric',
-            'photo' => 'required|image',
-        ]);
+        if ($request->hasFile('photo')) {
+            $filePath = $request->file('photo')->store('products', 'public');
+        }
 
-        $path = $request->file('photo')->store('photos');
-
-        $product = new Product([
+        Product::create([
             'name' => $request->name,
             'price' => $request->price,
-            'photo' => $path,
+            'photo' => $filePath ?? null, // Store file path or null
         ]);
 
-        $product->save();
-
-        return redirect()->route('/')->with('success', 'Product created successfully');
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Product $product)
-    {
-        return view('product.show', compact('product'));
+        return redirect()->route('products.index')->with('success', 'Product created successfully!');
     }
 
     /**
@@ -61,7 +50,7 @@ class ProductController extends Controller
      */
     public function edit(Product $product)
     {
-        return view('product.edit', compact('product'));
+        return view('products.edit', compact('product'));
     }
 
     /**
@@ -69,12 +58,20 @@ class ProductController extends Controller
      */
     public function update(UpdateProductRequest $request, Product $product)
     {
-        $request->validate([
+        if ($request->hasFile('photo')) {
+            if ($product->photo) {
+                Storage::disk('public')->delete($product->photo);
+            }
+            $filePath = $request->file('photo')->store('products', 'public');
+        }
 
+        $product->update([
+            'name' => $request->name,
+            'price' => $request->price,
+            'photo' => $filePath ?? $product->photo,
         ]);
 
-        $product->update($request->all());
-        return redirect()->route('/')->with('success', 'Product updated successfully');
+        return redirect()->route('products.index')->with('success', 'Product updated successfully!');
     }
 
     /**
@@ -82,7 +79,12 @@ class ProductController extends Controller
      */
     public function destroy(Product $product)
     {
+        if ($product->photo) {
+            Storage::disk('public')->delete($product->photo);
+        }
+
         $product->delete();
-        return redirect()->route('/')->with('success', 'Product deleted successfully');
+
+        return redirect()->route('products.index')->with('success', 'Product deleted successfully!');
     }
 }

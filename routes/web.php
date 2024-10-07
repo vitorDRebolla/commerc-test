@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use \App\Http\Controllers\ClientController;
+use \App\Http\Controllers\ProductController;
+use \App\Http\Controllers\OrderController;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,8 +20,6 @@ Route::get('/', function () {
     return view('main');
 });
 
-Route::get('/create-client', function () {
-    return view('client.create');
-});
-
-Route::resource('client', ClientController::class);
+Route::resource('clients', ClientController::class);
+Route::resource('products', ProductController::class);
+Route::resource('orders', OrderController::class);

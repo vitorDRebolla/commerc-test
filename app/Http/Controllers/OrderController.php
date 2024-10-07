@@ -2,83 +2,92 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Order;
+use App\Models\Client;
+use App\Models\Product;
+use Illuminate\Http\Request;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderRequest;
-use App\Mail\OrderCreated;
-use App\Models\Order;
-use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the orders.
      */
     public function index()
     {
-        return Order::all();
+        $orders = Order::with('client', 'products')->get();
+        return view('orders.index', compact('orders'));
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Show the form for creating a new order.
      */
     public function create()
     {
-        return view ('order.create');
+        $clients = Client::all();
+        $products = Product::all();
+        return view('orders.create', compact('clients', 'products'));
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Store a newly created order in storage.
      */
     public function store(StoreOrderRequest $request)
     {
-        $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'products' => 'required|array',
-            'products.*' => 'exists:products,id',
-        ]);
-
-        $order = new Order([
+        $order = Order::create([
             'client_id' => $request->client_id,
+            'created_at' => now(),
         ]);
-        $order->save();
 
-        $order->products()->attach($request->products);
+        $order->products()->attach($request->product_ids);
 
-        // Enviar e-mail para o cliente
-        Mail::to($order->client->email)->send(new OrderCreated($order));
-
-        return response()->json($order, 201);
+        return redirect()->route('orders.index')->with('success', 'Order created successfully!');
     }
 
     /**
-     * Display the specified resource.
-     */
-    public function show(Order $order)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
+     * Show the form for editing the specified order.
      */
     public function edit(Order $order)
     {
-        //
+        $clients = Client::all();
+        $products = Product::all();
+        $selectedProducts = $order->products->pluck('id')->toArray();
+        return view('orders.edit', compact('order', 'clients', 'products', 'selectedProducts'));
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update the specified order in storage.
      */
     public function update(UpdateOrderRequest $request, Order $order)
     {
-        //
+        $order->update([
+            'client_id' => $request->client_id,
+        ]);
+
+        $order->products()->sync($request->product_ids);
+
+        return redirect()->route('orders.index')->with('success', 'Order updated successfully!');
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Remove the specified order from storage.
      */
     public function destroy(Order $order)
     {
-        //
+        $order->products()->detach();
+        $order->delete();
+
+        return redirect()->route('orders.index')->with('success', 'Order deleted successfully!');
+    }
+
+    /**
+     * Display the specified order.
+     */
+    public function show(Order $order)
+    {
+        $order->load('client', 'products');
+        return view('orders.show', compact('order'));
     }
 }
+
